@@ -2,22 +2,35 @@ using System.Text;
 using ChatAppSignalR.Hubs;
 using ChatAppSignalR.Data;
 using ChatAppSignalR.Services;
-using Microsoft.AspNetCore.SignalR;
 using ChatAppSignalR.Settings;
+using JWTAuth.Services;
+
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
+// MongoDB
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 
 builder.Services.AddSingleton<MongoDbContext>();
+
+// Services
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<MessageService>();
+builder.Services.AddScoped<ConversationService>();
+
+// Auth
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 
 builder.Services.AddControllers();
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -28,7 +41,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Nhập token theo dạng: Bearer {your_token}"
+        Description = "Nhập token: Bearer {your_token}"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -47,49 +60,79 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddScoped<MessageService>();
+// SignalR
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
-builder.Services.AddScoped<ConversationService>();
-
-// JWT
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var key = jwtSection["Key"];
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+// JWT (dùng AppSettings cho thống nhất)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["AppSettings:Issuer"],
             ValidateAudience = true,
+            ValidAudience = builder.Configuration["AppSettings:Audience"],
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSection["Issuer"],
-            ValidAudience = jwtSection["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!))
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["AppSettings:Token"]!))
+        };
+
+        //   SignalR + JWT
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/hubs/chat"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 
 builder.Services.AddAuthorization();
 
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
+});
+
 var app = builder.Build();
+
+app.UseCors("AllowAll");
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
+app.UseStaticFiles();
 app.UseHttpsRedirection();
+
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
+// SignalR endpoint
 app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
