@@ -26,7 +26,7 @@ namespace JWTAuth.Controllers
             {
                 user.Username,
                 user.Email
-            }); // ✅ không trả PasswordHash
+            }); 
         }
 
        
@@ -39,6 +39,30 @@ namespace JWTAuth.Controllers
                 return BadRequest("Invalid email or password!");
 
             return Ok(token);
+        }
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh(RefreshRequest request)
+        {
+            var result = await authService.RefreshAsync(request.RefreshToken);
+
+            if (result == null)
+                return BadRequest("Invalid refresh token");
+
+            return Ok(new
+            {
+                accessToken = result.Value.accessToken,
+                refreshToken = result.Value.refreshToken
+            });
+        }
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout(RefreshRequest request)
+        {
+            var success = await authService.LogoutAsync(request.RefreshToken);
+
+            if (!success)
+                return BadRequest("Invalid refresh token");
+
+            return Ok("Logged out successfully");
         }
 
         [Authorize]

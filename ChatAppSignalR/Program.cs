@@ -57,7 +57,7 @@ app.UseStaticFiles();
 
 app.UseHttpsRedirection();
 
-//  Authentication trước Authorization
+//  phải có Authentication trước Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
