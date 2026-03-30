@@ -64,8 +64,7 @@ namespace ChatAppSignalR.Services
                 Username = user.Username,
                 DisplayName = user.DisplayName,
                 Email = user.Email,
-                Phone = user.Phone,
-                CreatedAt = user.CreatedAt
+               
             };
         }
     }

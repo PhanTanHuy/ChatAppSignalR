@@ -1,4 +1,4 @@
-﻿using ChatAppSignalR.Models;
+using ChatAppSignalR.Models;
 using ChatAppSignalR.Settings;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
@@ -19,6 +19,9 @@ namespace ChatAppSignalR.Data
 
         public IMongoCollection<User> Users =>
             _database.GetCollection<User>(_settings.UsersCollectionName);
+
+        public IMongoCollection<RefreshToken> RefreshTokens =>
+            _database.GetCollection<RefreshToken>(_settings.RefreshTokensCollectionName);
 
         public IMongoCollection<Friend> Friends =>
             _database.GetCollection<Friend>(_settings.FriendsCollectionName);
