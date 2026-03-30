@@ -44,31 +44,55 @@ namespace ChatAppSignalR.Services
             //return $"{accessToken}|{refreshToken}";
         }
 
+        //private string CreateToken(User user)
+        //{
+        //    var claims = new List<Claim>
+        //    {
+        //        new Claim (ClaimTypes.Name, user.Username),
+        //        new Claim (ClaimTypes.NameIdentifier, user.Id.ToString()),
+
+        //    };
+
+        //    var key = new SymmetricSecurityKey(
+        //            Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!));
+
+        //    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+        //    var tokenDescriptor = new JwtSecurityToken(
+        //        issuer: configuration.GetValue<string>("AppSettings:Issuer"),
+        //        audience: configuration.GetValue<string>("AppSettings:Audience"),
+        //        claims: claims,
+        //        expires: DateTime.UtcNow.AddDays(1),
+        //        signingCredentials: creds
+
+        //        );
+
+        //    return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+
+        //}
         private string CreateToken(User user)
         {
             var claims = new List<Claim>
             {
-                new Claim (ClaimTypes.Name, user.Username),
-                new Claim (ClaimTypes.NameIdentifier, user.Id.ToString()),
-
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             };
 
             var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!));
+                Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!)
+            );
 
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
             var tokenDescriptor = new JwtSecurityToken(
-                issuer: configuration.GetValue<string>("AppSettings:Issuer"),
-                audience: configuration.GetValue<string>("AppSettings:Audience"),
+                issuer: configuration["Jwt:Issuer"],
+                audience: configuration["Jwt:Audience"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddDays(1),
                 signingCredentials: creds
+            );
 
-                );
             return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-
         }
-
         public async Task<User?> RegisterAsync(RegisterRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Username))
@@ -80,14 +104,17 @@ namespace ChatAppSignalR.Services
             if (string.IsNullOrWhiteSpace(request.Email))
                 throw new ArgumentException("email is required");
 
+            var filter = Builders<User>.Filter.Or(
+                Builders<User>.Filter.Eq(u => u.Username, request.Username),
+                Builders<User>.Filter.Eq(u => u.Email, request.Email)
+            );
 
             var existingUser = await context.Users
-                .Find(u => u.Username == request.Username || u.Email == request.Email)
+                .Find(filter)
                 .FirstOrDefaultAsync();
 
             if (existingUser != null)
                 return null;
-
             var user = new User();
 
             var hashedPassword = new PasswordHasher<User>()
