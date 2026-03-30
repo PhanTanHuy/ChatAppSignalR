@@ -1,175 +1,85 @@
-﻿using JWT.DTO;
-using JWT.Entities;
 
-using JWTAuth.Services;
-using Microsoft.AspNetCore.Authorization;
-
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using ChatAppSignalR.DTOs;
+using ChatAppSignalR.Models;
+using ChatAppSignalR.Services;
 
-namespace JWTAuth.Controllers
+
+
+
+namespace ChatAppSignalR.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class AuthController(IAuthService authService) : ControllerBase
+    public class AuthController
     {
-
-      
-        [HttpPost("register")]
-        public async Task<ActionResult<object>> Register(RegisterRequest request) 
+        [Route("api/[controller]")]
+        [ApiController]
+        public class AuthController(IAuthService authService) : ControllerBase
         {
-            var user = await authService.RegisterAsync(request);
 
-            if (user is null)
-                return BadRequest("User already exists");
 
-            return Ok(new
+            [HttpPost("register")]
+            public async Task<ActionResult<object>> Register(RegisterRequest request)
             {
-                user.Username,
-                user.Email
-            }); 
-        }
+                var user = await authService.RegisterAsync(request);
 
-       
-        [HttpPost("login")]
-        public async Task<ActionResult<string>> Login(LoginRequest request)
-        {
-            var token = await authService.LoginAsync(request);
+                if (user is null)
+                    return BadRequest("User already exists");
 
-            if (token is null)
-                return BadRequest("Invalid email or password!");
+                return Ok(new
+                {
+                    user.Username,
+                    user.Email
+                });
+            }
 
-            return Ok(token);
-        }
-        [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh(RefreshRequest request)
-        {
-            var result = await authService.RefreshAsync(request.RefreshToken);
-
-            if (result == null)
-                return BadRequest("Invalid refresh token");
-
-            return Ok(new
+            [HttpPost("login")]
+            public async Task<IActionResult> Login(LoginRequest request)
             {
-                accessToken = result.Value.accessToken,
-                refreshToken = result.Value.refreshToken
-            });
+                var result = await authService.LoginAsync(request);
+
+                if (result == null)
+                    return BadRequest("Invalid email or password!");
+
+                return Ok(new
+                {
+                    accessToken = result.Value.accessToken,
+                    refreshToken = result.Value.refreshToken
+                });
+            }
+            [HttpPost("refresh")]
+            public async Task<IActionResult> Refresh(RefreshRequest request)
+            {
+                var result = await authService.RefreshAsync(request.RefreshToken);
+
+                if (result == null)
+                    return BadRequest("Invalid refresh token");
+
+                return Ok(new
+                {
+                    accessToken = result.Value.accessToken,
+                    refreshToken = result.Value.refreshToken
+                });
+            }
+            [HttpPost("logout")]
+            public async Task<IActionResult> Logout(RefreshRequest request)
+            {
+                var success = await authService.LogoutAsync(request.RefreshToken);
+
+                if (!success)
+                    return BadRequest("Invalid refresh token");
+
+                return Ok("Logged out successfully");
+            }
+
+            [Authorize]
+            [HttpGet]
+            public IActionResult AuthenticatedOnlyEndpoint()
+            {
+                return Ok("You are authenticated!");
+            }
+
         }
-        [HttpPost("logout")]
-        public async Task<IActionResult> Logout(RefreshRequest request)
-        {
-            var success = await authService.LogoutAsync(request.RefreshToken);
-
-            if (!success)
-                return BadRequest("Invalid refresh token");
-
-            return Ok("Logged out successfully");
-        }
-
-        [Authorize]
-        [HttpGet]
-        public IActionResult AuthenticatedOnlyEndpoint()
-        {
-            return Ok("You are authenticated!");
-        }
-
     }
 }
-
-//using JWT.DTO;
-//using JWT.Entities;
-//using Microsoft.AspNetCore.Http;
-//using Microsoft.AspNetCore.Identity;
-//using Microsoft.AspNetCore.Mvc;
-//using Microsoft.IdentityModel.Tokens;
-//using System.IdentityModel.Tokens.Jwt;
-//using System.Security.Claims;
-//using System.Text;
-
-//namespace JWT.Controllers
-//{
-//    [Route("api/[controller]")]
-//    [ApiController]
-//    public class AuthController(IConfiguration configuration) : ControllerBase
-//    {
-//        public static User user = new User();
-
-//        [HttpPost("Register")]
-//        public ActionResult<User> Register (UserDto request)
-//        {
-//            var hashedPassword = new PasswordHasher<User>().HashPassword(user, request.Password);
-//            user.Username = request.Username;
-//            user.PasswordHash = hashedPassword;
-
-//            return Ok(user);
-//        }
-//        [HttpPost("Login")]
-//        public ActionResult<string> Login (UserDto request)
-//        {
-//            if(user.Username != request.Username)
-//            {
-//                return BadRequest("not found user");
-//            }
-//            if(new PasswordHasher<User>().VerifyHashedPassword(user, user.PasswordHash, request.Password) == PasswordVerificationResult.Failed)
-//            {
-//                return BadRequest("wrong password");
-//            }
-//            string token = CreateToken(user);
-//            return Ok(token);
-
-//        }
-//        private string CreateToken(User user)
-//        {
-//            var claims = new List<Claim>
-//            {
-//                new Claim(ClaimTypes.Name, user.Username)
-//            };
-
-//            var key = new SymmetricSecurityKey(
-//                Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token") ?? ""));
-
-//            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
-
-//            var tokenDescriptor = new SecurityTokenDescriptor
-//            {
-//                Subject = new ClaimsIdentity(claims),
-//                Issuer = configuration.GetValue<string>("AppSettings:Issuer"),
-//                Audience = configuration.GetValue<string>("AppSettings:Audience"),
-//                Expires = DateTime.UtcNow.AddDays(1),
-//                SigningCredentials = creds
-//            };
-
-//            var tokenHandler = new JwtSecurityTokenHandler();
-
-
-//            var token = tokenHandler.CreateToken(tokenDescriptor);          
-//            return tokenHandler.WriteToken(token);                           
-//        }
-//        //private string CreateToken(User user)
-//        //{
-//        //    var claims = new List<Claim>
-//        //    {
-//        //        new Claim(ClaimTypes.Name, user.Username)
-//        //    };
-//        //    //var key = new SymmetricSecurityKey(
-//        //    //    Encoding.UTF8.GetBytes(ConfigurationBinder.GetValue<string>("AppSettings:Token"))
-//        //    //);
-//        //    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")));
-
-//        //    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
-
-//        //    var tokenDescriptor = new SecurityTokenDescriptor
-//        //    {
-//        //        Subject = new ClaimsIdentity(claims),
-//        //        Issuer = configuration.GetValue<string>("AppSettings:Issuer"),
-//        //        Audience = configuration.GetValue<string>("AppSettings:Audience"),
-//        //        Expires = DateTime.UtcNow.AddDays(1),
-//        //        SigningCredentials = creds
-//        //    };
-
-//        //    return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-
-
-//        //}
-
-//    }
-//}

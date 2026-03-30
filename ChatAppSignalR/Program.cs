@@ -27,7 +27,6 @@ builder.Services.AddScoped<ConversationService>();
 // Auth
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-
 builder.Services.AddControllers();
 
 // Swagger
@@ -60,11 +59,14 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// OpenAPI + Scalar
+builder.Services.AddOpenApi();
+
 // SignalR
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
-// JWT (dùng AppSettings cho thống nhất)
+// JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -80,14 +82,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["AppSettings:Token"]!))
         };
 
-        //   SignalR + JWT
+        // SignalR + JWT
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
-
                 var path = context.HttpContext.Request.Path;
+
                 if (!string.IsNullOrEmpty(accessToken) &&
                     path.StartsWithSegments("/hubs/chat"))
                 {
@@ -125,7 +127,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseHttpsRedirection();
-
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -7,6 +7,7 @@ namespace ChatAppSignalR.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
+
         public string Id { get; set; } = null!;
 
         [BsonElement("username")]
@@ -34,3 +35,4 @@ namespace ChatAppSignalR.Models
         public DateTime CreatedAt { get; set; }
     }
 }
+

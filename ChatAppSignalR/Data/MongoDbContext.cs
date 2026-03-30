@@ -1,7 +1,11 @@
 ﻿using ChatAppSignalR.Models;
-using ChatAppSignalR.Settings;
+
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using ChatAppSignalR.Settings;
+
+
+
 
 namespace ChatAppSignalR.Data
 {
@@ -28,5 +32,10 @@ namespace ChatAppSignalR.Data
 
         public IMongoCollection<Message> Messages =>
             _database.GetCollection<Message>(_settings.MessagesCollectionName);
+    }
+}
+
+        public IMongoCollection<RefreshToken> RefreshTokens =>
+            _database.GetCollection<RefreshToken>(_settings.RefreshTokensCollectionName);
     }
 }
