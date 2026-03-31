@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using ChatAppSignalR.DTOs;
 using ChatAppSignalR.Hubs;
+using ChatAppSignalR.Models;
 using ChatAppSignalR.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -102,6 +103,34 @@ namespace ChatAppSignalR.Controllers
             {
                 Message = "Đã đánh dấu đã đọc"
             });
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<ConversationResponse>> CreateConversation(CreateConversationRequest request)
+        {
+            var userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized(new { message = "Chưa đăng nhập" });
+            }
+
+            var conversation = await _conversationService.CreateConversationAsync(request, userId);
+            return Ok(new { conversation });
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<ConversationResponse>>> GetUserConversations()
+        {
+            var userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized(new { message = "Chưa đăng nhập" });
+            }
+
+            var conversations = await _conversationService.GetUserConversationsAsync(userId);
+            return Ok(conversations);
         }
     }
 }

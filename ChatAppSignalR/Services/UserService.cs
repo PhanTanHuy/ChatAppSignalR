@@ -48,9 +48,27 @@ namespace ChatAppSignalR.Services
             {
                 Id = u.Id,
                 Username = u.Username,
-                DisplayName = u.DisplayName,
                 AvatarUrl = u.AvatarUrl,
                 IsFriend = friendIds.Contains(u.Id)
+            }).ToList();
+
+            return result;
+        }
+
+        public async Task<IEnumerable<UserDto>> GetAllUsersExceptAsync(string currentUserId)
+        {
+            var filter = Builders<User>.Filter.Ne(u => u.Id, currentUserId);
+
+            var users = await _context.Users
+                .Find(filter)
+                .ToListAsync();
+
+            var result = users.Select(u => new UserDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                AvatarUrl = u.AvatarUrl,
             }).ToList();
 
             return result;
@@ -62,7 +80,6 @@ namespace ChatAppSignalR.Services
             {
                 Id = user.Id,
                 Username = user.Username,
-                DisplayName = user.DisplayName,
                 Email = user.Email,
                
             };

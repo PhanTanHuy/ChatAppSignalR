@@ -12,10 +12,6 @@ namespace ChatAppSignalR.Models
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-    
-        [BsonElement("displayName")]
-        public string DisplayName { get; set; } = null!;
-
 
         [BsonElement("avatarUrl")]
         public string? AvatarUrl { get; set; }

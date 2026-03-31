@@ -23,7 +23,6 @@ namespace JWTAuth.Controllers
             {
                 user.Username,
                 user.Email,
-                user.DisplayName,
                 user.AvatarUrl
             });
             //return Ok(new
@@ -41,10 +40,16 @@ namespace JWTAuth.Controllers
             if (result == null)
                 return BadRequest("Invalid email or password!");
 
+                Response.Cookies.Append("refreshToken", result.Value.refreshToken, new CookieOptions {
+                HttpOnly = true,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTime.Now.AddDays(7)
+            });
+
             return Ok(new
             {
                 accessToken = result.Value.accessToken,
-                refreshToken = result.Value.refreshToken
             });
         }
         [HttpPost("refresh")]
@@ -58,16 +63,17 @@ namespace JWTAuth.Controllers
             return Ok(new
             {
                 accessToken = result.Value.accessToken,
-                refreshToken = result.Value.refreshToken
             });
         }
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout(RefreshRequest request)
+        public async Task<IActionResult> Logout()
         {
-            var success = await authService.LogoutAsync(request.RefreshToken);
+            var success = await authService.LogoutAsync(Request.Cookies["refreshToken"] ?? string.Empty);
 
             if (!success)
                 return BadRequest("Invalid refresh token");
+
+            Response.Cookies.Delete("refreshToken");
 
             return Ok("Logged out successfully");
         }
