@@ -39,13 +39,6 @@ namespace ChatAppSignalR.Controllers
                 return BadRequest(new { message = "Không thể tự gửi tin nhắn cho chính mình" });
             }
 
-            var areFriends = await _messageService.AreFriendsAsync(senderId, request.RecipientId);
-            if (!areFriends)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    new { message = "Chưa là bạn bè" });
-            }
-
             ChatAppSignalR.Models.Conversation? conversation;
 
             if (!string.IsNullOrWhiteSpace(request.ConversationId))

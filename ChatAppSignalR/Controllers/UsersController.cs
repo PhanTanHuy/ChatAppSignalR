@@ -52,5 +52,19 @@ namespace ChatAppSignalR.Controllers
             var result = await _userService.SearchUsersAsync(currentUserId, query.Username);
             return Ok(result);
         }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetAllExceptMe()
+        {
+            var currentUserId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                return Unauthorized(new { message = "Chưa đăng nhập" });
+            }
+
+            var result = await _userService.GetAllUsersExceptAsync(currentUserId);
+            return Ok(result);
+        }
     }
 }

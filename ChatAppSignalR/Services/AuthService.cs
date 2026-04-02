@@ -123,7 +123,6 @@ namespace ChatAppSignalR.Services
             user.Username = request.Username;
             user.Email = request.Email;
             user.PasswordHash = hashedPassword;
-            user.DisplayName = request.DisplayName;
             user.AvatarUrl = request.AvatarUrl;
 
             await context.Users.InsertOneAsync(user);

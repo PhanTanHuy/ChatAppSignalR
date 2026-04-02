@@ -119,5 +119,116 @@ namespace ChatAppSignalR.Services
                 .Where(id => id != currentUserId)
                 .ToList();
         }
+
+        public async Task<ConversationResponse> CreateConversationAsync(CreateConversationRequest request, string currentUserId)
+        {
+            if (request.IsDirect && request.ParticipantIds.Count == 1)
+            {
+                var existingConversation = await FindDirectConversationAsync(currentUserId, request.ParticipantIds[0]);
+                if (existingConversation != null)
+                {
+                    return await ConvertToConversationResponseAsync(existingConversation, currentUserId);
+                }
+            }
+
+            var conversation = new Conversation
+            {
+                IsDirect = request.IsDirect,
+                ParticipantIds = new List<string> { currentUserId },
+                CreatedAt = DateTime.UtcNow
+            };
+
+            conversation.ParticipantIds.AddRange(request.ParticipantIds);
+
+            await _context.Conversations.InsertOneAsync(conversation);
+            return await ConvertToConversationResponseAsync(conversation, currentUserId);
+        }
+
+        public async Task<List<ConversationResponse>> GetUserConversationsAsync(string userId)
+        {
+            var conversations = await _context.Conversations
+                .Find(c => c.ParticipantIds.Contains(userId))
+                .SortByDescending(c => c.LastMessageAt)
+                .ToListAsync();
+
+            var responseList = new List<ConversationResponse>();
+            foreach (var conversation in conversations)
+            {
+                var response = await ConvertToConversationResponseAsync(conversation, userId);
+                responseList.Add(response);
+            }
+
+            return responseList;
+        }
+
+        private async Task<ConversationResponse> ConvertToConversationResponseAsync(Conversation conversation, string currentUserId)
+        {
+            // Get participant user details
+            var participantUsers = await _context.Users
+                .Find(u => conversation.ParticipantIds.Contains(u.Id))
+                .ToListAsync();
+
+            var participants = participantUsers.Select(u => new UserDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                AvatarUrl = u.AvatarUrl
+            }).ToList();
+
+            // Get last message if exists
+            LastMessageResponse? lastMessage = null;
+            if (conversation.LastMessageId != null)
+            {
+                var message = await _context.Messages
+                    .Find(m => m.Id == conversation.LastMessageId)
+                    .FirstOrDefaultAsync();
+
+                if (message != null)
+                {
+                    var sender = await _context.Users
+                        .Find(u => u.Id == message.SenderId)
+                        .FirstOrDefaultAsync();
+
+                    lastMessage = new LastMessageResponse
+                    {
+                        Id = message.Id,
+                        Content = message.Content,
+                        CreatedAt = message.CreatedAt,
+                        Sender = new SenderInfoDto
+                        {
+                            Id = sender.Id,
+                            Username = sender.Username,
+                            AvatarUrl = sender.AvatarUrl
+                        }
+                    };
+                }
+            }
+
+            return new ConversationResponse
+            {
+                Id = conversation.Id,
+                IsDirect = conversation.IsDirect,
+                LastMessageAt = conversation.LastMessageAt,
+                LastMessageId = conversation.LastMessageId,
+                Participants = participants,
+                SeenBy = conversation.SeenBy,
+                UnreadCounts = conversation.UnreadCounts,
+                CreatedAt = conversation.CreatedAt,
+                LastMessage = lastMessage
+            };
+        }
+
+        private async Task<Conversation?> FindDirectConversationAsync(string userId1, string userId2)
+        {
+            var filter = Builders<Conversation>.Filter.And(
+                Builders<Conversation>.Filter.Eq(c => c.IsDirect, true),
+                Builders<Conversation>.Filter.All(c => c.ParticipantIds, new[] { userId1, userId2 })
+            );
+
+            return await _context.Conversations
+                .Find(filter)
+                .FirstOrDefaultAsync();
+        }
     }
 }
