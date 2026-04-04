@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using ChatAppSignalR.DTOs;
 using ChatAppSignalR.Hubs;
 using ChatAppSignalR.Services;
@@ -14,13 +14,16 @@ namespace ChatAppSignalR.Controllers
     public class MessagesController : ControllerBase
     {
         private readonly MessageService _messageService;
+        private readonly ConversationService _conversationService;
         private readonly IHubContext<ChatHub> _hubContext;
 
         public MessagesController(
             MessageService messageService,
+            ConversationService conversationService,
             IHubContext<ChatHub> hubContext)
         {
             _messageService = messageService;
+            _conversationService = conversationService;
             _hubContext = hubContext;
         }
 
@@ -84,8 +87,18 @@ namespace ChatAppSignalR.Controllers
 
             var response = MessageService.ToResponse(message);
 
+            // Build full ConversationResponse (includes lastMessage with Sender info)
+            var conversationResponse = await _conversationService.GetConversationResponseAsync(conversation.Id);
+
+            var payload = new
+            {
+                message = response,
+                conversation = conversationResponse,
+                unreadCounts = conversation.UnreadCounts
+            };
+
             await _hubContext.Clients.User(request.RecipientId)
-                .SendAsync("new_message", response);
+                .SendAsync("new-message", payload);
 
             return Created(string.Empty, response);
         }

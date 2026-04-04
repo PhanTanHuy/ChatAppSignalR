@@ -1,4 +1,4 @@
-﻿using ChatAppSignalR.Data;
+using ChatAppSignalR.Data;
 using ChatAppSignalR.DTOs;
 using ChatAppSignalR.Models;
 using MongoDB.Driver;
@@ -161,7 +161,14 @@ namespace ChatAppSignalR.Services
             return responseList;
         }
 
-        private async Task<ConversationResponse> ConvertToConversationResponseAsync(Conversation conversation, string currentUserId)
+        public async Task<ConversationResponse?> GetConversationResponseAsync(string conversationId)
+        {
+            var conversation = await GetByIdAsync(conversationId);
+            if (conversation == null) return null;
+            return await ConvertToConversationResponseAsync(conversation);
+        }
+
+        private async Task<ConversationResponse> ConvertToConversationResponseAsync(Conversation conversation, string currentUserId = "")
         {
             // Get participant user details
             var participantUsers = await _context.Users
