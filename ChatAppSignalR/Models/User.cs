@@ -13,8 +13,8 @@ namespace ChatAppSignalR.Models
         public string PasswordHash { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
     
-        [BsonElement("displayName")]
-        public string DisplayName { get; set; } = null!;
+        //[BsonElement("displayName")]
+        //public string DisplayName { get; set; } = null!;
 
 
         [BsonElement("avatarUrl")]

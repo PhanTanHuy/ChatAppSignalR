@@ -23,7 +23,7 @@ namespace JWTAuth.Controllers
             {
                 user.Username,
                 user.Email,
-                user.DisplayName,
+               
                 user.AvatarUrl
             });
             //return Ok(new

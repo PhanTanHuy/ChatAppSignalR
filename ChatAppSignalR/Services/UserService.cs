@@ -48,7 +48,7 @@ namespace ChatAppSignalR.Services
             {
                 Id = u.Id,
                 Username = u.Username,
-                DisplayName = u.DisplayName,
+             
                 AvatarUrl = u.AvatarUrl,
                 IsFriend = friendIds.Contains(u.Id)
             }).ToList();
@@ -62,7 +62,7 @@ namespace ChatAppSignalR.Services
             {
                 Id = user.Id,
                 Username = user.Username,
-                DisplayName = user.DisplayName,
+            
                 Email = user.Email,
                
             };
