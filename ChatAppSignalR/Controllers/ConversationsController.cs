@@ -194,6 +194,10 @@ namespace ChatAppSignalR.Controllers
             try
             {
                 var conversation = await _conversationService.CreateConversationAsync(request, userId);
+
+                var otherUser = conversation.Participants.FirstOrDefault(p => p.Id != userId);
+
+                await _hubContext.Clients.User(otherUser!.Id).SendAsync("new-convo", conversation);
                 return Ok(new { conversation });
             }
             catch (InvalidOperationException ex)

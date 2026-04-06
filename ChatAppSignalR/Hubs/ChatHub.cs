@@ -25,7 +25,7 @@ namespace ChatAppSignalR.Hubs
 
             OnlineUsersStore.Remove(userId!, connectionId);
 
-            await Clients.All.SendAsync("online-user", OnlineUsersStore.GetOnlineUsers());
+            await Clients.All.SendAsync("online-users", OnlineUsersStore.GetOnlineUsers());
 
             await base.OnDisconnectedAsync(exception);
         }
