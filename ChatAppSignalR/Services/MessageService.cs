@@ -102,6 +102,66 @@ namespace ChatAppSignalR.Services
             await _context.Conversations.UpdateOneAsync(c => c.Id == conversation.Id, update);
         }
 
+        public async Task<(Message Message, Conversation Conversation)> SendGroupMessageAsync(
+            string conversationId,
+            string senderId,
+            string? content,
+            string? imgUrl)
+        {
+            var conversation = await GetConversationByIdAsync(conversationId);
+            if (conversation == null)
+            {
+                throw new KeyNotFoundException("Conversation không tồn tại");
+            }
+
+            if (conversation.IsDirect)
+            {
+                throw new InvalidOperationException("Conversation không phải group");
+            }
+
+            if (!conversation.ParticipantIds.Contains(senderId))
+            {
+                throw new UnauthorizedAccessException("Sender không phải thành viên của conversation");
+            }
+
+            var message = await CreateMessageAsync(conversationId, senderId, content, imgUrl);
+
+            if (conversation.UnreadCounts == null)
+            {
+                conversation.UnreadCounts = new Dictionary<string, int>();
+            }
+
+            var unreadCounts = new Dictionary<string, int>(conversation.UnreadCounts);
+            foreach (var participantId in conversation.ParticipantIds)
+            {
+                if (participantId == senderId)
+                {
+                    unreadCounts[senderId] = 0;
+                    continue;
+                }
+
+                unreadCounts[participantId] = unreadCounts.GetValueOrDefault(participantId) + 1;
+            }
+
+            conversation.SeenBy = new List<string> { senderId };
+            conversation.UnreadCounts = unreadCounts;
+            conversation.LastMessageId = message.Id;
+            conversation.LastMessageAt = message.CreatedAt;
+
+            var update = Builders<Conversation>.Update
+                .Set(c => c.SeenBy, conversation.SeenBy)
+                .Set(c => c.UnreadCounts, conversation.UnreadCounts)
+                .Set(c => c.LastMessageId, conversation.LastMessageId)
+                .Set(c => c.LastMessageAt, conversation.LastMessageAt);
+
+            await _context.Conversations.UpdateOneAsync(
+                c => c.Id == conversation.Id,
+                update
+            );
+
+            return (message, conversation);
+        }
+
         public static MessageResponse ToResponse(Message message)
         {
             return new MessageResponse

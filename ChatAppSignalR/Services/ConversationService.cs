@@ -119,21 +119,126 @@ namespace ChatAppSignalR.Services
                 .Where(id => id != currentUserId)
                 .ToList();
         }
+        // Additional methods for creating conversations, adding/removing participants
+
+        public async Task<ConversationResponse> AddParticipantAsync(string conversationId, string userIdToAdd, string addedByUserId)
+        {
+            var conversation = await GetByIdAsync(conversationId);
+            if (conversation == null)
+            {
+                throw new KeyNotFoundException("Conversation không tồn tại");
+            }
+
+            if (conversation.IsDirect)
+            {
+                throw new InvalidOperationException("Không thể thêm thành viên vào conversation trực tiếp");
+            }
+
+            if (!IsParticipant(conversation, addedByUserId))
+            {
+                throw new UnauthorizedAccessException("Không phải thành viên của conversation");
+            }
+
+            var user = await _context.Users
+                .Find(u => u.Id == userIdToAdd)
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                throw new KeyNotFoundException("User không tồn tại");
+            }
+
+            if (conversation.ParticipantIds.Contains(user.Id))
+            {
+                throw new InvalidOperationException("User đã là thành viên của conversation");
+            }
+
+            var update = Builders<Conversation>.Update
+                .AddToSet(c => c.ParticipantIds, user.Id)
+                .Set($"UnreadCounts.{user.Id}", 0);
+
+            await _context.Conversations.UpdateOneAsync(
+                c => c.Id == conversationId,
+                update
+            );
+
+            conversation.ParticipantIds.Add(user.Id);
+            conversation.UnreadCounts[user.Id] = 0;
+
+            return await ConvertToConversationResponseAsync(conversation);
+        }
+
+        // Method to remove a participant from a group conversation
+        public async Task RemoveParticipantAsync(string conversationId, string removeUserId, string removedByUserId)
+        {
+            var conversation = await GetByIdAsync(conversationId);
+            if (conversation == null)
+            {
+                throw new KeyNotFoundException("Conversation không tồn tại");
+            }
+
+            if (conversation.IsDirect)
+            {
+                throw new InvalidOperationException("Không thể xóa thành viên khỏi conversation trực tiếp");
+            }
+
+            if (!IsParticipant(conversation, removedByUserId))
+            {
+                throw new UnauthorizedAccessException("Không phải thành viên của conversation");
+            }
+
+            if (removedByUserId == removeUserId)
+            {
+                throw new InvalidOperationException("Không thể xóa chính mình khỏi nhóm");
+            }
+
+            if (!conversation.ParticipantIds.Contains(removeUserId))
+            {
+                throw new KeyNotFoundException("User không phải thành viên của conversation");
+            }
+
+            var update = Builders<Conversation>.Update
+                .Pull(c => c.ParticipantIds, removeUserId)
+                .Unset($"UnreadCounts.{removeUserId}");
+
+            await _context.Conversations.UpdateOneAsync(
+                c => c.Id == conversationId,
+                update
+            );
+        }
 
         public async Task<ConversationResponse> CreateConversationAsync(CreateConversationRequest request, string currentUserId)
         {
-            if (request.IsDirect && request.ParticipantIds.Count == 1)
+            if (request.IsDirect)
             {
+                if (request.ParticipantIds.Count != 1)
+                {
+                    throw new InvalidOperationException("Direct conversation phải có đúng 1 user khác.");
+                }
+
                 var existingConversation = await FindDirectConversationAsync(currentUserId, request.ParticipantIds[0]);
                 if (existingConversation != null)
                 {
                     return await ConvertToConversationResponseAsync(existingConversation, currentUserId);
                 }
             }
+            else
+            {
+                if (request.ParticipantIds.Count < 1)
+                {
+                    throw new InvalidOperationException("Group conversation phải có ít nhất 1 user khác.");
+                }
+
+                if (string.IsNullOrWhiteSpace(request.GroupName))
+                {
+                    throw new InvalidOperationException("Group conversation phải có tên nhóm.");
+                }
+            }
 
             var conversation = new Conversation
             {
                 IsDirect = request.IsDirect,
+                Name = request.IsDirect ? null : request.GroupName?.Trim(),
                 ParticipantIds = new List<string> { currentUserId },
                 CreatedAt = DateTime.UtcNow
             };
@@ -180,7 +285,8 @@ namespace ChatAppSignalR.Services
                 Id = u.Id,
                 Username = u.Username,
                 Email = u.Email,
-                AvatarUrl = u.AvatarUrl
+                AvatarUrl = u.AvatarUrl,
+                DisplayName = u.DisplayName
             }).ToList();
 
             // Get last message if exists
@@ -200,7 +306,7 @@ namespace ChatAppSignalR.Services
                     lastMessage = new LastMessageResponse
                     {
                         Id = message.Id,
-                        Content = message.Content,
+                        Content = message.Content ?? string.Empty,
                         CreatedAt = message.CreatedAt,
                         Sender = new SenderInfoDto
                         {
@@ -216,6 +322,7 @@ namespace ChatAppSignalR.Services
             {
                 Id = conversation.Id,
                 IsDirect = conversation.IsDirect,
+                Name = conversation.Name,
                 LastMessageAt = conversation.LastMessageAt,
                 LastMessageId = conversation.LastMessageId,
                 Participants = participants,

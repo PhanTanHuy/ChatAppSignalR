@@ -15,5 +15,9 @@ namespace ChatAppSignalR.Models
 
         [BsonElement("avatarUrl")]
         public string? AvatarUrl { get; set; }
+
+        [BsonElement("displayName")]
+        public string? DisplayName { get; set; }
     }
 }
+

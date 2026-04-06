@@ -6,6 +6,7 @@ namespace ChatAppSignalR.DTOs
         public bool IsDirect { get; set; }
         public DateTime? LastMessageAt { get; set; }
         public string? LastMessageId { get; set; }
+        public string? Name { get; set; }
         public List<UserDto> Participants { get; set; } = new List<UserDto>();
         public List<string> SeenBy { get; set; } = new List<string>();
         public Dictionary<string, int> UnreadCounts { get; set; } = new Dictionary<string, int>();

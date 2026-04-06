@@ -102,5 +102,62 @@ namespace ChatAppSignalR.Controllers
 
             return Created(string.Empty, response);
         }
+  
+        // Gửi tin nhắn trong conversation nhóm
+
+        [HttpPost("group")]
+        public async Task<ActionResult<MessageResponse>> SendGroup([FromBody] SendGroupMessageRequest request)
+        {
+            var senderId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(senderId))
+            {
+                return Unauthorized(new { message = "Chưa đăng nhập" });
+            }
+
+            try
+            {
+                var (message, conversation) = await _messageService.SendGroupMessageAsync(
+                    request.ConversationId,
+                    senderId,
+                    request.Content,
+                    request.ImgUrl
+                );
+
+                var response = MessageService.ToResponse(message);
+                var conversationResponse = await _conversationService.GetConversationResponseAsync(conversation.Id);
+
+                var recipientIds = conversation.ParticipantIds
+                    .Where(id => id != senderId)
+                    .ToList();
+
+                var payload = new
+                {
+                    message = response,
+                    conversation = conversationResponse,
+                    unreadCounts = conversation.UnreadCounts
+                };
+
+                if (recipientIds.Any())
+                {
+                    await _hubContext.Clients.Users(recipientIds)
+                        .SendAsync("new-message", payload);
+                }
+
+                return Created(string.Empty, response);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

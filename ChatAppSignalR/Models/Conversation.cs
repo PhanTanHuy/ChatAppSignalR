@@ -15,6 +15,9 @@ namespace ChatAppSignalR.Models
         [BsonElement("isDirect")]
         public bool IsDirect { get; set; }
 
+        [BsonElement("name")]
+        public string? Name { get; set; }
+
         [BsonElement("seenBy")]
         public List<string> SeenBy { get; set; } = new();
 

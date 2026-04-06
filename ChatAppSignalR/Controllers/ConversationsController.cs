@@ -104,6 +104,82 @@ namespace ChatAppSignalR.Controllers
                 Message = "Đã đánh dấu đã đọc"
             });
         }
+        // add member to group conversation
+        [HttpPost("{conversationId}/add-member")]
+        public async Task<ActionResult<ConversationResponse>> AddMember(
+            string conversationId,
+            [FromBody] AddMemberRequest request)
+        {
+            var userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized(new { message = "Chưa đăng nhập" });
+            }
+
+            try
+            {
+                var conversation = await _conversationService.AddParticipantAsync(
+                    conversationId,
+                    request.UserId,
+                    userId
+                );
+
+                return Ok(conversation);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+   
+        /// remove member from group conversation
+        [HttpDelete("{conversationId}/remove-member/{userId}")]
+        public async Task<ActionResult<ApiMessageResponse>> RemoveMember(
+            string conversationId,
+            [FromRoute] RemoveMemberRequest request)
+        {
+            var userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized(new { message = "Chưa đăng nhập" });
+            }
+
+            try
+            {
+                await _conversationService.RemoveParticipantAsync(
+                    conversationId,
+                    request.UserId,
+                    userId
+                );
+
+                return Ok(new ApiMessageResponse
+                {
+                    Message = "Đã xóa thành viên khỏi nhóm"
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
         [HttpPost]
         public async Task<ActionResult<ConversationResponse>> CreateConversation(CreateConversationRequest request)
@@ -115,8 +191,15 @@ namespace ChatAppSignalR.Controllers
                 return Unauthorized(new { message = "Chưa đăng nhập" });
             }
 
-            var conversation = await _conversationService.CreateConversationAsync(request, userId);
-            return Ok(new { conversation });
+            try
+            {
+                var conversation = await _conversationService.CreateConversationAsync(request, userId);
+                return Ok(new { conversation });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpGet]
