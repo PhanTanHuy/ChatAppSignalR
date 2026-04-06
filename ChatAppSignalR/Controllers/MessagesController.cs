@@ -87,7 +87,6 @@ namespace ChatAppSignalR.Controllers
 
             var response = MessageService.ToResponse(message);
 
-            // Build full ConversationResponse (includes lastMessage with Sender info)
             var conversationResponse = await _conversationService.GetConversationResponseAsync(conversation.Id);
 
             var payload = new
